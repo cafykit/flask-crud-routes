@@ -1,22 +1,17 @@
-import flask
 import inflection
 import os
-import contextlib
 import functools
 
-class Router():
+class Router(object):
     paths = ["/"]
     def __init__(self,app, controller):
         self.controller = controller
         self.app = app
 
     def __enter__(self):
-        resource = inflection.underscore(self.controller.__name__.replace("App", ""))
-        print(Router.paths)
         self.controller().routes(self.app, base=os.path.join(*Router.paths))
-        Router.paths.append(resource)
-        Router.paths.append("<{resource}_id>".format(resource=resource))
-
+        Router.paths.append(self.controller.get_root())
+        Router.paths.append(self.controller.get_id())
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         Router.paths.pop()
@@ -37,64 +32,63 @@ class Router():
 
             return decorated
 
+    class NoRouteExists(BaseException):
+        pass
 
     class Controller(object):
         def __init__(self):
-            self._root = inflection.underscore(self.__class__.__name__.replace("App", ""))
+            cls = self.__class__
+            self._root = cls.get_root()
+            self._resource = cls.get_resource()
+            self._id  = cls.get_id()
+
             self.options = dict()
 
-        def create(self):
-            return "CafyApp::create"
-
-        def index(self):
-            return "CafyApp::index"
-
-        def update(self, id):
-            return "CafyApp::update"
-
-        def delete(self, id):
-            return "CafyApp::delete"
-
-        def show(self, id):
-            return "CafyApp::show"
+        @classmethod
+        def get_root(cls):
+            return inflection.underscore(cls.__name__.replace("App", ""))
 
         @classmethod
-        def route(self, **options):
-            def decorator(f):
-                self.options[f.__name__] = options
+        def get_resource(cls):
+            return inflection.singularize(cls.get_root())
 
-        #@contextlib.contextmanager
+        @classmethod
+        def get_id(cls):
+            return "<{resource}_id>".format(resource=cls.get_resource())
+
+        def create(self):
+            raise Router.NoRouteExists("No such route is defined")
+
+        def index(self):
+            raise Router.NoRouteExists("No such route is defined")
+
+        def update(self):
+            raise Router.NoRouteExists("No such route is defined")
+
+        def delete(self):
+            raise Router.NoRouteExists("No such route is defined")
+
+        def show(self):
+            raise Router.NoRouteExists("No such route is defined")
+
         def routes(self, app, base="/"):
             cls = self.__class__
             list_route = os.path.join(base, self._root)
-            item_route = os.path.join(base, self._root,"<id>")
+            item_route = os.path.join(base, self._root, self._id)
 
-            print(cls.__name__)
-            print(list_route)
-            print(item_route)
             obj = self
 
             for attr in dir(self):
-                if attr in ['route','routes','index','create','show','update','delete']:
+                if attr in dir(Router.Controller): #['route','routes','index','create','show','update','delete']:
                     continue
                 if attr[0] == "_":
                     continue
 
                 method = getattr(self, attr)
                 if callable(method):
-                    #import ipdb;
-                    #ipdb.set_trace()
                     custom_route = os.path.join(list_route,attr)
-                    print(self.options)
                     qualname = "{klass}.{method}".format(klass=cls.__name__,method=attr)
-                    options = Router.route.options.get(qualname)
-                    if options:
-                        methods = options.get("methods",["GET"])
-
-                    print(method)
-                    print(Router.route.options)
-                    #import ipdb;
-                    #ipdb.set_trace()
+                    options = Router.route.options.get(qualname,{})
 
                     app.add_url_rule(
                         custom_route,
@@ -102,22 +96,15 @@ class Router():
                         attr,
                         **options)
 
-            app.add_url_rule(list_route,"{klass}.index".format(klass=cls.__name__),obj.index,methods=["GET"])
-            app.add_url_rule(list_route,"{klass}.create".format(klass=cls.__name__),obj.create,methods=["POST"])
+            app.add_url_rule(list_route, "{klass}.index".format(klass=cls.__name__),obj.index,methods=["GET"])
+            app.add_url_rule(list_route, "{klass}.create".format(klass=cls.__name__),obj.create,methods=["POST"])
             app.add_url_rule(item_route, "{klass}.show".format(klass=cls.__name__), obj.show, methods=["GET"])
             app.add_url_rule(item_route, "{klass}.update".format(klass=cls.__name__), obj.update, methods=["PUT","PATCH"])
             app.add_url_rule(item_route, "{klass}.delete".format(klass=cls.__name__), obj.delete, methods=["DELETE"])
 
 
-            #app.route(newroute, )(obj.create)
-            #app.route(newroute, methods=["GET"])(obj.index)
-            #app.route(item_route, methods=["GET"])(obj.show)
-            #app.route(item_route, methods=["PUT","PATCH"])(obj.update)
-            #app.route(item_route, methods=["DELETE"])(obj.delete)
-
-
-
-
+"""
+Example: 
 class AppTestplans(Router.Controller):
     def update(self, id):
         return "AppTestplans::update"
@@ -130,6 +117,8 @@ class AppTestplans(Router.Controller):
 
 class AppTestcases(Router.Controller):
     pass
+
+"""
 
 
 

@@ -13,6 +13,9 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/kuamrend/flask-crud-routes",
     packages=setuptools.find_packages(),
+    install_requires=[
+        'inflection'
+    ],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
