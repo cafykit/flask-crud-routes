@@ -50,3 +50,12 @@ The method names are to be followed as above and the routes are automatically cr
         @Router.route(methods=["POST"])
         def custom(self, id):
             return "AppTestplans::custom"
+
+### Another way to write the routes. Helpful if using it in nested resources
+    class AppTestcases(Router.Controller):
+        def index(self, **kwargs): 
+            return "AppTestcases::index::{kwargs}".format(kwargs=kwargs)
+
+        def show(self, **kwargs):
+            return "AppTestcases::show::{id}::{kwargs}".format(id=kwargs.get('testcase_id'),kwargs=kwargs)
+
